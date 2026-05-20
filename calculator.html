@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calcly</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0a0a0a;
+      font-family: 'Syne', sans-serif;
+    }
+
+    .calc {
+      width: 320px;
+      background: #111;
+      border-radius: 28px;
+      padding: 24px;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+    }
+
+    .brand {
+      text-align: center;
+      margin-bottom: 18px;
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: #444;
+      text-transform: uppercase;
+    }
+
+    .display {
+      background: #1a1a1a;
+      border-radius: 16px;
+      padding: 20px 20px 14px;
+      margin-bottom: 20px;
+      min-height: 100px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: flex-end;
+    }
+
+    .expr {
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      color: #555;
+      min-height: 18px;
+      margin-bottom: 6px;
+      word-break: break-all;
+      text-align: right;
+    }
+
+    .result {
+      font-family: 'DM Mono', monospace;
+      font-size: 42px;
+      font-weight: 300;
+      color: #f0f0f0;
+      line-height: 1;
+      word-break: break-all;
+      text-align: right;
+      transition: font-size 0.15s;
+    }
+
+    .result.small { font-size: 28px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 14px;
+      height: 64px;
+      font-family: 'Syne', sans-serif;
+      font-size: 18px;
+      font-weight: 400;
+      cursor: pointer;
+      transition: transform 0.08s, background 0.1s;
+      user-select: none;
+    }
+
+    .btn:active { transform: scale(0.92); }
+
+    .btn-num  { background: #2a2a2a; color: #f0f0f0; }
+    .btn-num:hover  { background: #333; }
+
+    .btn-op   { background: #2d2d1a; color: #e8c84a; }
+    .btn-op:hover   { background: #3a3a22; }
+
+    .btn-eq   { background: #e8c84a; color: #111; font-weight: 700; grid-column: span 2; }
+    .btn-eq:hover   { background: #f0d060; }
+
+    .btn-clear { background: #2a1a1a; color: #e85a4a; }
+    .btn-clear:hover { background: #3a2020; }
+
+    .btn-util  { background: #1f1f1f; color: #888; font-size: 15px; }
+    .btn-util:hover  { background: #282828; }
+
+    .btn-zero { grid-column: span 2; }
+
+    .hint {
+      text-align: center;
+      margin-top: 18px;
+      font-size: 11px;
+      color: #333;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+  <div class="calc">
+    <div class="brand">calcly</div>
+    <div class="display">
+      <div class="expr" id="expr"></div>
+      <div class="result" id="result">0</div>
+    </div>
+    <div class="grid">
+      <button class="btn btn-clear"  onclick="calcAction('clear')">AC</button>
+      <button class="btn btn-util"   onclick="calcAction('sign')">+/−</button>
+      <button class="btn btn-util"   onclick="calcAction('percent')">%</button>
+      <button class="btn btn-op"     onclick="calcAction('÷')">÷</button>
+
+      <button class="btn btn-num"    onclick="calcAction('7')">7</button>
+      <button class="btn btn-num"    onclick="calcAction('8')">8</button>
+      <button class="btn btn-num"    onclick="calcAction('9')">9</button>
+      <button class="btn btn-op"     onclick="calcAction('×')">×</button>
+
+      <button class="btn btn-num"    onclick="calcAction('4')">4</button>
+      <button class="btn btn-num"    onclick="calcAction('5')">5</button>
+      <button class="btn btn-num"    onclick="calcAction('6')">6</button>
+      <button class="btn btn-op"     onclick="calcAction('−')">−</button>
+
+      <button class="btn btn-num"    onclick="calcAction('1')">1</button>
+      <button class="btn btn-num"    onclick="calcAction('2')">2</button>
+      <button class="btn btn-num"    onclick="calcAction('3')">3</button>
+      <button class="btn btn-op"     onclick="calcAction('+')">+</button>
+
+      <button class="btn btn-num btn-zero" onclick="calcAction('0')">0</button>
+      <button class="btn btn-num"    onclick="calcAction('.')">.</button>
+      <button class="btn btn-eq"     onclick="calcAction('=')">=</button>
+    </div>
+    <div class="hint">keyboard supported</div>
+  </div>
+
+  <script>
+    let current = '0', prev = '', op = '', justEvaled = false;
+
+    function update() {
+      const r = document.getElementById('result');
+      const e = document.getElementById('expr');
+      r.textContent = current;
+      r.className = 'result' + (current.length > 9 ? ' small' : '');
+      e.textContent = prev && op ? prev + ' ' + op : '';
+    }
+
+    function doCalc() {
+      const a = parseFloat(prev), b = parseFloat(current);
+      let res;
+      if (op === '+') res = a + b;
+      else if (op === '−') res = a - b;
+      else if (op === '×') res = a * b;
+      else if (op === '÷') { current = b !== 0 ? String(parseFloat((a / b).toPrecision(12))) : 'Error'; return; }
+      current = String(parseFloat(res.toPrecision(12)));
+    }
+
+    function calcAction(v) {
+      if (v === 'clear') { current = '0'; prev = ''; op = ''; justEvaled = false; }
+      else if (v === 'sign') { current = current.startsWith('-') ? current.slice(1) : (current !== '0' ? '-' + current : '0'); }
+      else if (v === 'percent') { current = String(parseFloat(current) / 100); }
+      else if (['+', '−', '×', '÷'].includes(v)) {
+        if (op && !justEvaled) doCalc();
+        prev = current; op = v; justEvaled = false; current = '0';
+      }
+      else if (v === '=') {
+        if (!op) return;
+        doCalc(); op = ''; prev = ''; justEvaled = true;
+      }
+      else if (v === '.') {
+        if (justEvaled) { current = '0'; justEvaled = false; }
+        if (!current.includes('.')) current += '.';
+      }
+      else {
+        if (justEvaled) { current = '0'; justEvaled = false; }
+        if (current.length >= 12) return;
+        current = current === '0' ? v : current + v;
+      }
+      update();
+    }
+
+    document.addEventListener('keydown', e => {
+      if ('0123456789'.includes(e.key)) calcAction(e.key);
+      else if (e.key === '.') calcAction('.');
+      else if (e.key === '+') calcAction('+');
+      else if (e.key === '-') calcAction('−');
+      else if (e.key === '*') calcAction('×');
+      else if (e.key === '/') { e.preventDefault(); calcAction('÷'); }
+      else if (e.key === 'Enter' || e.key === '=') calcAction('=');
+      else if (e.key === 'Escape') calcAction('clear');
+      else if (e.key === 'Backspace') {
+        if (current !== 'Error') {
+          current = current.length > 1 ? current.slice(0, -1) : '0';
+          update();
+        }
+      }
+    });
+
+    update();
+  </script>
+</body>
+</html>
